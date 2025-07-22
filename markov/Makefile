@@ -1,2 +1,2 @@
 markov: markov.cpp
-	g++ markov.cpp -o markov -Wall -Wextra -std=c++20
+	g++ markov.cpp -o markov -Wall -Wextra -O3 -std=c++20

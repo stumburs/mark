@@ -165,7 +165,44 @@ private:
 int main()
 {
     Markov m;
-    m.ReadSourceFromFile("../alice.txt");
-    m.BuildNgrams(Markov::SplitStrategy::SplitByCharacter, 4);
-    std::cout << m.GenerateText(100) << std::endl;
+    std::string line;
+
+    std::cout << "Backend awaiting commands..." << std::endl;
+
+    // I have no clue how to make this better.
+    while (std::getline(std::cin, line))
+    {
+        if (line == "load source")
+        {
+            std::cout << "Specify source file path" << std::endl;
+            std::getline(std::cin, line);
+            m.ReadSourceFromFile(line);
+            std::cout << "Loaded " << line << std::endl;
+        }
+        else if (line == "build ngrams")
+        {
+            std::cout << "Specify split strategy <SplitByWord, SplitByCharacter>" << std::endl;
+            std::getline(std::cin, line);
+            if (line == "SplitByWord")
+            {
+                m.BuildNgrams(Markov::SplitStrategy::SplitByWord);
+                std::cout << "Ngrams built" << std::endl;
+            }
+            else if (line == "SplitByCharacter")
+            {
+                std::cout << "Specify amount of characters to split by" << std::endl;
+                std::getline(std::cin, line);
+                m.BuildNgrams(Markov::SplitStrategy::SplitByCharacter, std::stoll(line));
+                std::cout << "Ngrams built" << std::endl;
+            }
+            else
+            {
+                std::cerr << "Invalid split strategy specified: " << line << std::endl;
+            }
+        }
+        else if (line == "generate")
+        {
+            std::cout << m.GenerateText(100) << std::endl;
+        }
+    }
 }

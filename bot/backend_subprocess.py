@@ -40,11 +40,15 @@ async def load_source_text_async(file_path: str) -> str:
     return await loop.run_in_executor(executor, load_source_text, file_path)
 
 
-def build_ngrams() -> str:
+def build_ngrams(split_strategy: str, character_count: int) -> str:
     proc.stdin.write("build_ngrams\n")
     proc.stdin.flush()
 
-    proc.stdin.write("word\n")  # TODO: implement dynamic size
+    if split_strategy == "word":
+        proc.stdin.write("word\n")  # TODO: implement dynamic size
+    elif split_strategy == "character":
+        proc.stdin.write(f'{character_count}\n')
+
     proc.stdin.flush()
 
     lines = []
@@ -60,9 +64,9 @@ def build_ngrams() -> str:
     return "\n".join(lines)
 
 
-async def build_ngrams_async() -> str:
+async def build_ngrams_async(split_strategy: str, character_count: int) -> str:
     loop = asyncio.get_running_loop()
-    return await loop.run_in_executor(executor, build_ngrams)
+    return await loop.run_in_executor(executor, build_ngrams, split_strategy, character_count)
 
 
 def generate_text() -> str:

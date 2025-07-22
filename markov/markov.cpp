@@ -186,7 +186,7 @@ int main()
             if (line == "word")
             {
                 m.BuildNgrams(Markov::SplitStrategy::SplitByWord);
-                std::cout << "Ngrams built" << std::endl;
+                std::cout << "Ngrams built by word" << std::endl;
                 std::cout << "__END__" << std::endl
                           << std::flush;
             }
@@ -196,7 +196,7 @@ int main()
                 {
                     size_t char_count = std::stoull(line);
                     m.BuildNgrams(Markov::SplitStrategy::SplitByCharacter, char_count);
-                    std::cout << "Ngrams built" << std::endl;
+                    std::cout << "Ngrams built by " << char_count << " characters" << std::endl;
                     std::cout << "__END__" << std::endl
                               << std::flush;
                 }

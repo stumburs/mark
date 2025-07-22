@@ -11,10 +11,17 @@ config = configparser.ConfigParser()
 # TODO: Change path
 config.read("bot/config.ini")
 
-APP_ID = config['AUTH']['ClientID']
-APP_SECRET = config['AUTH']['ClientSecret']
+# Bot
+APP_ID = config.get('AUTH', 'ClientID')
+APP_SECRET = config.get('AUTH', 'ClientSecret')
 USER_SCOPE = [AuthScope.CHAT_READ, AuthScope.CHAT_EDIT]
-TARGET_CHANNEL = config['AUTH']['TargetChannel']
+TARGET_CHANNEL = config.get('AUTH', 'TargetChannel')
+
+# Markov
+TRAIN_ON_CHAT = config.getboolean('MARKOV', 'TrainOnChat')
+NGRAM_PATH = config.get('MARKOV', 'NgramPath')
+SPLIT_STRATEGY = config.get("MARKOV", "SplitStrategy", fallback="word").lower()
+CHARACTER_COUNT = config.getint("MARKOV", "CharacterCount", fallback=4)
 
 
 async def on_message(msg: ChatMessage):
@@ -29,7 +36,7 @@ async def on_ready(ready_event: EventData):
     # Start up markov
     print("Setting up Markov")
     print(await backend_subprocess.load_source_text_async("alice.txt"))
-    print(await backend_subprocess.build_ngrams_async())
+    print(await backend_subprocess.build_ngrams_async(split_strategy=SPLIT_STRATEGY, character_count=CHARACTER_COUNT))
 
 
 async def mark_command(cmd: ChatCommand):

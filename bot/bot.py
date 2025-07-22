@@ -4,6 +4,7 @@ from twitchAPI.oauth import UserAuthenticator
 from twitchAPI.twitch import Twitch
 import configparser
 import asyncio
+import backend_subprocess
 
 config = configparser.ConfigParser()
 
@@ -25,9 +26,14 @@ async def on_ready(ready_event: EventData):
 
     print(f'Bot succesfully connected to {TARGET_CHANNEL}')
 
+    # Start up markov
+    print("Setting up Markov")
+    print(backend_subprocess.load_source_text("alice.txt"))
+    print(backend_subprocess.build_ngrams())
+
 
 async def mark_command(cmd: ChatCommand):
-    await cmd.reply("Hello!")
+    await cmd.reply(backend_subprocess.generate_text())
 
 
 async def run_bot():

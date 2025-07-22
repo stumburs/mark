@@ -172,37 +172,37 @@ int main()
     // I have no clue how to make this better.
     while (std::getline(std::cin, line))
     {
-        if (line == "load source")
+        if (line == "load_source")
         {
-            std::cout << "Specify source file path" << std::endl;
             std::getline(std::cin, line);
             m.ReadSourceFromFile(line);
             std::cout << "Loaded " << line << std::endl;
         }
-        else if (line == "build ngrams")
+        else if (line == "build_ngrams")
         {
-            std::cout << "Specify split strategy <SplitByWord, SplitByCharacter>" << std::endl;
             std::getline(std::cin, line);
-            if (line == "SplitByWord")
+            if (line == "word")
             {
                 m.BuildNgrams(Markov::SplitStrategy::SplitByWord);
                 std::cout << "Ngrams built" << std::endl;
             }
-            else if (line == "SplitByCharacter")
-            {
-                std::cout << "Specify amount of characters to split by" << std::endl;
-                std::getline(std::cin, line);
-                m.BuildNgrams(Markov::SplitStrategy::SplitByCharacter, std::stoll(line));
-                std::cout << "Ngrams built" << std::endl;
-            }
-            else
-            {
-                std::cerr << "Invalid split strategy specified: " << line << std::endl;
-            }
+            // else if (line == "SplitByCharacter")
+            // {
+            //     std::cout << "Specify amount of characters to split by" << std::endl;
+            //     std::getline(std::cin, line);
+            //     m.BuildNgrams(Markov::SplitStrategy::SplitByCharacter, std::stoll(line));
+            //     std::cout << "Ngrams built" << std::endl;
+            // }
+            // else
+            // {
+            //     std::cerr << "Invalid split strategy specified: " << line << std::endl;
+            // }
         }
         else if (line == "generate")
         {
+            std::getline(std::cin, line); // Ignored for now
             std::cout << m.GenerateText(100) << std::endl;
+            std::cout << "__END__" << std::endl;
         }
     }
 }

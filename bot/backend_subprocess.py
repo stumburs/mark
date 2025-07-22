@@ -1,7 +1,8 @@
 import subprocess
 
+# TODO: Change path
 proc = subprocess.Popen(
-    ['../markov/markov'],
+    ['markov/markov'],
     stdin=subprocess.PIPE,
     stdout=subprocess.PIPE,
     stderr=subprocess.PIPE,
@@ -10,27 +11,37 @@ proc = subprocess.Popen(
 )
 
 
-if __name__ == "__main__":
-    print(proc.stdout.readline())
+def load_source_text(path: str) -> str:
+    proc.stdin.write("load_source\n")
+    proc.stdin.flush()
+    proc.stdin.write(path + '\n')
+    proc.stdin.flush()
+    return proc.stdout.readline().strip()
 
-    try:
-        while True:
-            user_input = input(">>> ")
-            if not user_input.strip():
-                continue
 
-            proc.stdin.write(user_input + '\n')
-            proc.stdin.flush()
+# experimental
+def build_ngrams() -> str:
+    proc.stdin.write("build_ngrams\n")
+    proc.stdin.flush()
+    proc.stdin.write("word\n")
+    proc.stdin.flush()
+    return proc.stdout.readline().strip()
 
-            response = proc.stdout.readline().strip()
-            print(response)
 
-            if user_input.strip == "exit":
-                break
+def generate_text() -> str:
+    proc.stdin.write("generate\n")
+    proc.stdin.flush()
+    proc.stdin.write("100\n")
+    proc.stdin.flush()
 
-    except KeyboardInterrupt:
-        print("\n[Interrupted] Exiting...")
+    lines = []
+    while True:
+        line = proc.stdout.readline()
+        if not line:
+            break
+        line = line.strip()
+        if line == "__END__":
+            break
+        lines.append(line)
 
-    finally:
-        proc.terminate()
-        proc.wait()
+    return "\n".join(lines)

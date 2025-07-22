@@ -1,7 +1,7 @@
 @echo off
 
 :: Activate venv
-call venv\Scripts\activate
+call \venv\Scripts\activate
 
 :: Run the bot
 python bot\bot.py

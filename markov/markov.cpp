@@ -193,25 +193,19 @@ int main()
         }
         else if (line == "build_ngrams")
         {
-            // Read strategy or character count line
-            if (!std::getline(std::cin, line))
-            {
-                std::cout << "Expected strategy line but got EOF" << std::endl
-                          << std::flush;
-                break; // or handle error appropriately
-            }
+            std::getline(std::cin, line);
             std::string strategy_line = line;
+            std::string input_buffer = "";
 
-            // Read optional input text until __END__INPUT__
-            std::string input_buffer;
             while (std::getline(std::cin, line))
             {
                 if (line == "__END__INPUT__")
+                {
                     break;
+                }
                 input_buffer += line + "\n";
             }
 
-            input_buffer = "test";
             bool has_input_text = !input_buffer.empty();
 
             if (strategy_line == "word")
@@ -224,18 +218,13 @@ int main()
                 {
                     m.BuildNgrams(Markov::SplitStrategy::SplitByWord);
                 }
-
-                std::cout << "Ngrams built by word" << (has_input_text ? " (from chat)" : "") << std::endl
-                          << std::flush;
-                std::cout << "__END__" << std::endl
-                          << std::flush;
+                std::cout << "Ngrams built by word" << (has_input_text ? " (chat)" : "") << std::endl;
             }
             else
             {
                 try
                 {
                     size_t char_count = std::stoull(strategy_line);
-
                     if (has_input_text)
                     {
                         m.BuildNgrams(Markov::SplitStrategy::SplitByCharacter, char_count, &input_buffer);
@@ -244,18 +233,16 @@ int main()
                     {
                         m.BuildNgrams(Markov::SplitStrategy::SplitByCharacter, char_count);
                     }
-
-                    std::cout << "Ngrams built by " << char_count << " characters" << (has_input_text ? " (from chat)" : "") << std::endl
-                              << std::flush;
-                    std::cout << "__END__" << std::endl
-                              << std::flush;
+                    std::cout << "Ngrams built by " << char_count << " characters" << (has_input_text ? " (chat)" : "") << std::endl;
                 }
                 catch (const std::exception &e)
                 {
-                    std::cout << "Invalid split strategy or count: " << strategy_line << std::endl
-                              << std::flush;
+                    std::cout << "Invalid split strategy: " << strategy_line << std::endl;
                 }
             }
+
+            std::cout << "__END__" << std::endl
+                      << std::flush;
         }
         else if (line == "generate")
         {

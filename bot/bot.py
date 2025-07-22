@@ -31,12 +31,8 @@ async def on_message(msg: ChatMessage):
     print(f'{msg.user.display_name}: {msg.text}')
 
     if TRAIN_ON_CHAT:
-        try:
-            await backend_subprocess.build_ngrams_async(
-                split_strategy=SPLIT_STRATEGY, character_count=CHARACTER_COUNT, new_text=msg.text)
-        except Exception as e:
-            print(f"Error in build_ngrams_async: {e}")
-            raise Exception(e)
+        print(await backend_subprocess.build_ngrams_async(
+            split_strategy=SPLIT_STRATEGY, character_count=CHARACTER_COUNT, new_text=msg.text))
 
 
 async def on_ready(ready_event: EventData):

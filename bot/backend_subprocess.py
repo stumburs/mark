@@ -11,7 +11,8 @@ proc = subprocess.Popen(
     stdin=subprocess.PIPE,
     stdout=subprocess.PIPE,
     text=True,
-    bufsize=1
+    bufsize=1,
+    encoding='utf-8'
 )
 
 
@@ -45,22 +46,20 @@ def build_ngrams(split_strategy: str, character_count: int, new_text: str | None
     proc.stdin.flush()
 
     if split_strategy == "word":
-        print("building with word")
         proc.stdin.write("word\n")
     elif split_strategy == "character":
-        print("building with character", character_count)
-        proc.stdin.write(f'{character_count}\n')
+        proc.stdin.write(f"{character_count}\n")
     else:
-        raise ValueError(f'Invalid split strategy: {split_strategy}')
-
+        raise ValueError(f"Invalid split strategy: {split_strategy}")
     proc.stdin.flush()
 
+    # If updating ngrams
     if new_text:
-        print("new text:", new_text)
         proc.stdin.write(new_text.strip() + "\n")
     proc.stdin.write("__END__INPUT__\n")
     proc.stdin.flush()
 
+    # Collect output
     lines = []
     while True:
         line = proc.stdout.readline()
@@ -75,9 +74,6 @@ def build_ngrams(split_strategy: str, character_count: int, new_text: str | None
 
 
 async def build_ngrams_async(split_strategy: str, character_count: int, new_text: str | None = None) -> str:
-    if proc.poll() is not None:
-        raise RuntimeError(
-            "Backend process is not running (it may have crashed or exited)")
     loop = asyncio.get_running_loop()
     try:
         return await loop.run_in_executor(executor, build_ngrams, split_strategy, character_count, new_text)

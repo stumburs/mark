@@ -71,7 +71,8 @@ async def mark_command(cmd: ChatCommand):
 
 
 async def save_command(cmd: ChatCommand):
-    print(await backend_subprocess.save_ngrams_async(path=NGRAM_PATH))
+    if cmd.user.name == TARGET_CHANNEL:  # only the channel owner can run this command
+        print(await backend_subprocess.save_ngrams_async(path=NGRAM_PATH))
 
 
 async def run_bot():
@@ -85,7 +86,7 @@ async def run_bot():
     chat.register_event(ChatEvent.READY, on_ready)
     chat.register_event(ChatEvent.MESSAGE, on_message)
     chat.register_command(GENERATE_COMMAND, mark_command)
-    # chat.register_command('save', save_command)  # Debug
+    chat.register_command('save', save_command)  # Debug
 
     chat.start()
 

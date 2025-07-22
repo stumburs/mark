@@ -1,2 +1,5 @@
 venv/
 markov/markov
+__pycache__/
+.vscode/
+alice.txt

@@ -59,6 +59,11 @@ public:
             break;
         case SplitStrategy::SplitByCharacter:
             words = SplitByNCharacters(text_to_use, character_count);
+            for (auto w : words)
+            {
+                std::cout << w << "; ";
+            }
+            std::cout << std::endl;
             break;
         default:
             std::cout << "Unknown split strategy to build Ngrams." << std::endl
@@ -66,11 +71,16 @@ public:
             break;
         }
 
-        for (size_t i = 0; i <= words.size() - 1; i++)
+        std::cout << "Words size: " << words.size() << std::endl;
+        for (size_t i = 0; i < words.size() - 1; i++)
         {
+            std::cout << "i - " << i << std::endl;
             const std::string &current_word = words[i];
+            std::cout << "Current word" << current_word << std::endl;
             const std::string &next_word = words[i + 1];
+            std::cout << "Next word" << next_word << std::endl;
             ngrams[current_word].push_back(next_word);
+            std::cout << "Pushed" << std::endl;
         }
     }
 
@@ -146,7 +156,8 @@ private:
         std::vector<std::string> result;
         for (size_t i = 0; i < text.length(); i += n)
         {
-            result.push_back(text.substr(i, n));
+            size_t remaining = std::min(n, text.length() - i);
+            result.push_back(text.substr(i, remaining));
         }
         return result;
     }

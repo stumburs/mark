@@ -1,9 +1,10 @@
 import subprocess
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
+import threading
 
 executor = ThreadPoolExecutor()
-lock = asyncio.Lock()
+proc_lock = threading.Lock()
 
 # TODO: Change path
 proc = subprocess.Popen(
@@ -17,23 +18,24 @@ proc = subprocess.Popen(
 
 
 def load_source_text(path: str) -> str:
-    proc.stdin.write("load_source\n")
-    proc.stdin.flush()
+    with proc_lock:
+        proc.stdin.write("load_source\n")
+        proc.stdin.flush()
 
-    proc.stdin.write(path + '\n')
-    proc.stdin.flush()
+        proc.stdin.write(path + '\n')
+        proc.stdin.flush()
 
-    lines = []
-    while True:
-        line = proc.stdout.readline()
-        if not line:
-            break
-        line = line.strip()
-        if line == "__END__":
-            break
-        lines.append(line)
+        lines = []
+        while True:
+            line = proc.stdout.readline()
+            if not line:
+                break
+            line = line.strip()
+            if line == "__END__":
+                break
+            lines.append(line)
 
-    return "\n".join(lines)
+        return "\n".join(lines)
 
 
 async def load_source_text_async(file_path: str) -> str:
@@ -42,35 +44,36 @@ async def load_source_text_async(file_path: str) -> str:
 
 
 def build_ngrams(split_strategy: str, character_count: int, new_text: str | None = None) -> str:
-    proc.stdin.write("build_ngrams\n")
-    proc.stdin.flush()
+    with proc_lock:
+        proc.stdin.write("build_ngrams\n")
+        proc.stdin.flush()
 
-    if split_strategy == "word":
-        proc.stdin.write("word\n")
-    elif split_strategy == "character":
-        proc.stdin.write(f"{character_count}\n")
-    else:
-        raise ValueError(f"Invalid split strategy: {split_strategy}")
-    proc.stdin.flush()
+        if split_strategy == "word":
+            proc.stdin.write("word\n")
+        elif split_strategy == "character":
+            proc.stdin.write(f"{character_count}\n")
+        else:
+            raise ValueError(f"Invalid split strategy: {split_strategy}")
+        proc.stdin.flush()
 
-    # If updating ngrams
-    if new_text:
-        proc.stdin.write(new_text.strip() + "\n")
-    proc.stdin.write("__END__INPUT__\n")
-    proc.stdin.flush()
+        # If updating ngrams
+        if new_text:
+            proc.stdin.write(new_text.strip() + "\n")
+        proc.stdin.write("__END__INPUT__\n")
+        proc.stdin.flush()
 
-    # Collect output
-    lines = []
-    while True:
-        line = proc.stdout.readline()
-        if not line:
-            break
-        line = line.strip()
-        if line == "__END__":
-            break
-        lines.append(line)
+        # Collect output
+        lines = []
+        while True:
+            line = proc.stdout.readline()
+            if not line:
+                break
+            line = line.strip()
+            if line == "__END__":
+                break
+            lines.append(line)
 
-    return "\n".join(lines)
+        return "\n".join(lines)
 
 
 async def build_ngrams_async(split_strategy: str, character_count: int, new_text: str | None = None) -> str:
@@ -84,34 +87,34 @@ async def build_ngrams_async(split_strategy: str, character_count: int, new_text
 
 
 def generate_text() -> str:
-    if proc.poll() is not None:
-        raise RuntimeError("Backend process is not running.")
+    with proc_lock:
+        if proc.poll() is not None:
+            raise RuntimeError("Backend process is not running.")
 
-    try:
-        proc.stdin.write("generate\n")
-        proc.stdin.flush()
-        proc.stdin.write("100\n")
-        proc.stdin.flush()
-    except BrokenPipeError:
-        print("BrokenPipeError: Subprocess pipe is closed.")
-        stderr = proc.stdout.read()
-        print("Subprocess stderr output:\n", stderr)
-        raise
+        try:
+            proc.stdin.write("generate\n")
+            proc.stdin.flush()
+            proc.stdin.write("100\n")
+            proc.stdin.flush()
+        except BrokenPipeError:
+            print("BrokenPipeError: Subprocess pipe is closed.")
+            stderr = proc.stdout.read()
+            print("Subprocess stderr output:\n", stderr)
+            raise
 
-    lines = []
-    while True:
-        line = proc.stdout.readline()
-        if not line:
-            break
-        line = line.strip()
-        if line == "__END__":
-            break
-        lines.append(line)
+        lines = []
+        while True:
+            line = proc.stdout.readline()
+            if not line:
+                break
+            line = line.strip()
+            if line == "__END__":
+                break
+            lines.append(line)
 
-    return "\n".join(lines)
+        return "\n".join(lines)
 
 
 async def generate_text_async() -> str:
     loop = asyncio.get_running_loop()
-    async with lock:
-        return await loop.run_in_executor(executor, generate_text)
+    return await loop.run_in_executor(executor, generate_text)

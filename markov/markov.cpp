@@ -312,7 +312,7 @@ int main()
         else if (line == "generate")
         {
             std::getline(std::cin, line); // Ignored for now
-            std::cout << m.GenerateText(100) << std::endl
+            std::cout << m.GenerateText(std::stoull(line)) << std::endl
                       << std::flush;
             std::cout << "__END__" << std::endl
                       << std::flush;

@@ -18,11 +18,15 @@ USER_SCOPE = [AuthScope.CHAT_READ, AuthScope.CHAT_EDIT]
 TARGET_CHANNEL = config.get('AUTH', 'TargetChannel')
 
 # Markov
-TRAIN_ON_CHAT = config.getboolean('MARKOV', 'TrainOnChat')
-NGRAM_PATH = config.get('MARKOV', 'NgramPath')
+TRAIN_ON_CHAT = config.getboolean('MARKOV', 'TrainOnChat', fallback=True)
+NGRAM_PATH = config.get('MARKOV', 'NgramPath', fallback="data.bin")
 SPLIT_STRATEGY = config.get("MARKOV", "SplitStrategy", fallback="word").lower()
 CHARACTER_COUNT = config.getint("MARKOV", "CharacterCount", fallback=4)
 AUTOSAVE_INTERVAL = config.getint("MARKOV", "AutosaveInterval", fallback=100)
+GENERATE_COMMAND = config.get('MARKOV', 'GenerateCommand', fallback="mark")
+LENGTH_TO_GENERATE = config.getint('MARKOV', 'LengthToGenerate', fallback=100)
+IGNORE_STREAMELEMENTS = config.getboolean(
+    'MARKOV', 'IgnoreStreamElements', fallback=True)
 
 message_counter = 0
 
@@ -31,6 +35,9 @@ async def on_message(msg: ChatMessage):
     global message_counter
 
     if msg.text.startswith("!"):
+        return
+
+    if IGNORE_STREAMELEMENTS and msg.user.name == "StreamElements":
         return
 
     print(f'{msg.user.display_name}: {msg.text}')
@@ -60,7 +67,7 @@ async def on_ready(ready_event: EventData):
 
 
 async def mark_command(cmd: ChatCommand):
-    await cmd.reply(await backend_subprocess.generate_text_async())
+    await cmd.reply(await backend_subprocess.generate_text_async(LENGTH_TO_GENERATE))
 
 
 async def save_command(cmd: ChatCommand):
@@ -77,8 +84,8 @@ async def run_bot():
 
     chat.register_event(ChatEvent.READY, on_ready)
     chat.register_event(ChatEvent.MESSAGE, on_message)
-    chat.register_command('mark', mark_command)
-    chat.register_command('save', save_command)  # Debug
+    chat.register_command(GENERATE_COMMAND, mark_command)
+    # chat.register_command('save', save_command)  # Debug
 
     chat.start()
 

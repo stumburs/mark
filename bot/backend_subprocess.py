@@ -86,7 +86,7 @@ async def build_ngrams_async(split_strategy: str, character_count: int, new_text
         raise
 
 
-def generate_text() -> str:
+def generate_text(length_to_generate: int) -> str:
     with proc_lock:
         if proc.poll() is not None:
             raise RuntimeError("Backend process is not running.")
@@ -94,7 +94,7 @@ def generate_text() -> str:
         try:
             proc.stdin.write("generate\n")
             proc.stdin.flush()
-            proc.stdin.write("100\n")
+            proc.stdin.write(f"{length_to_generate}\n")
             proc.stdin.flush()
         except BrokenPipeError:
             print("BrokenPipeError: Subprocess pipe is closed.")
@@ -115,9 +115,9 @@ def generate_text() -> str:
         return "\n".join(lines)
 
 
-async def generate_text_async() -> str:
+async def generate_text_async(length_to_generate: int) -> str:
     loop = asyncio.get_running_loop()
-    return await loop.run_in_executor(executor, generate_text)
+    return await loop.run_in_executor(executor, generate_text, length_to_generate)
 
 
 def save_ngrams(path: str) -> str:

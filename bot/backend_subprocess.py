@@ -118,3 +118,53 @@ def generate_text() -> str:
 async def generate_text_async() -> str:
     loop = asyncio.get_running_loop()
     return await loop.run_in_executor(executor, generate_text)
+
+
+def save_ngrams(path: str) -> str:
+    with proc_lock:
+        proc.stdin.write("save\n")
+        proc.stdin.flush()
+        proc.stdin.write(f"{path}\n")
+        proc.stdin.flush()
+
+        lines = []
+        while True:
+            line = proc.stdout.readline()
+            if not line:
+                break
+            line = line.strip()
+            if line == "__END__":
+                break
+            lines.append(line)
+
+        return "\n".join(lines)
+
+
+async def save_ngrams_async(path: str) -> str:
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(executor, save_ngrams, path)
+
+
+def load_ngrams(path: str) -> str:
+    with proc_lock:
+        proc.stdin.write("load\n")
+        proc.stdin.flush()
+        proc.stdin.write(f"{path}\n")
+        proc.stdin.flush()
+
+        lines = []
+        while True:
+            line = proc.stdout.readline()
+            if not line:
+                break
+            line = line.strip()
+            if line == "__END__":
+                break
+            lines.append(line)
+
+        return "\n".join(lines)
+
+
+async def load_ngrams_async(path: str) -> str:
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(executor, load_ngrams, path)

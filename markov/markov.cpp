@@ -15,6 +15,7 @@
 #include <fstream>
 #include <sstream>
 #include <random>
+#include <filesystem>
 
 class Markov
 {
@@ -36,7 +37,6 @@ public:
         {
             std::cout << "Could not open file: " << source_path << std::endl
                       << std::flush;
-            throw std::runtime_error("Could not open file: " + source_path);
         }
 
         std::stringstream buffer;
@@ -59,11 +59,6 @@ public:
             break;
         case SplitStrategy::SplitByCharacter:
             words = SplitByNCharacters(text_to_use, character_count);
-            for (auto w : words)
-            {
-                std::cout << w << "; ";
-            }
-            std::cout << std::endl;
             break;
         default:
             std::cout << "Unknown split strategy to build Ngrams." << std::endl
@@ -71,16 +66,11 @@ public:
             break;
         }
 
-        std::cout << "Words size: " << words.size() << std::endl;
         for (size_t i = 0; i < words.size() - 1; i++)
         {
-            std::cout << "i - " << i << std::endl;
             const std::string &current_word = words[i];
-            std::cout << "Current word" << current_word << std::endl;
             const std::string &next_word = words[i + 1];
-            std::cout << "Next word" << next_word << std::endl;
             ngrams[current_word].push_back(next_word);
-            std::cout << "Pushed" << std::endl;
         }
     }
 
@@ -88,9 +78,7 @@ public:
     {
         if (ngrams.empty())
         {
-            std::cout << "No ngrams available - call BuildNgrams first" << std::endl
-                      << std::flush;
-            throw std::runtime_error("No ngrams available - call BuildNgrams first");
+            return "No ngrams available - call BuildNgrams first";
         }
 
         std::random_device rd;
@@ -113,6 +101,73 @@ public:
         }
 
         return generated_text;
+    }
+
+    void SaveNgramsToBinary(const std::string &filename)
+    {
+        std::ofstream out(filename, std::ios::binary);
+        for (const auto &[key, values] : ngrams)
+        {
+            size_t key_len = key.size();
+            out.write(reinterpret_cast<const char *>(&key_len), sizeof(size_t));
+            out.write(key.data(), key_len);
+
+            size_t vec_size = values.size();
+            out.write(reinterpret_cast<const char *>(&vec_size), sizeof(size_t));
+
+            for (const auto &val : values)
+            {
+                size_t str_len = val.size();
+                out.write(reinterpret_cast<const char *>(&str_len), sizeof(size_t));
+                out.write(val.data(), str_len);
+            }
+        }
+    }
+
+    void LoadNgramsFromBinary(const std::string &filename)
+    {
+        if (!std::filesystem::exists(filename))
+        {
+            std::ofstream out(filename, std::ios::binary); // creates empty file
+            out.close();
+            return;
+        }
+
+        std::ifstream in(filename, std::ios::binary);
+        if (!in)
+        {
+            std::cout << "Could not open file for reading: " << filename << std::endl;
+            return;
+        }
+
+        ngrams.clear();
+        while (in.peek() != EOF)
+        {
+            size_t key_len = 0;
+            in.read(reinterpret_cast<char *>(&key_len), sizeof(size_t));
+            if (in.eof())
+                break;
+
+            std::string key(key_len, '\0');
+            in.read(&key[0], key_len);
+
+            size_t vec_size = 0;
+            in.read(reinterpret_cast<char *>(&vec_size), sizeof(size_t));
+
+            std::vector<std::string> values;
+            for (size_t i = 0; i < vec_size; ++i)
+            {
+                size_t str_len = 0;
+                in.read(reinterpret_cast<char *>(&str_len), sizeof(size_t));
+
+                std::string val(str_len, '\0');
+                in.read(&val[0], str_len);
+
+                values.push_back(std::move(val));
+            }
+
+            ngrams[std::move(key)] = std::move(values);
+        }
     }
 
 private:
@@ -169,7 +224,6 @@ private:
         {
             std::cout << "Ngrams is empty" << std::endl
                       << std::flush;
-            throw std::runtime_error("Ngrams is empty");
         }
 
         std::random_device rd;
@@ -260,6 +314,24 @@ int main()
             std::getline(std::cin, line); // Ignored for now
             std::cout << m.GenerateText(100) << std::endl
                       << std::flush;
+            std::cout << "__END__" << std::endl
+                      << std::flush;
+        }
+        else if (line == "save")
+        {
+            std::getline(std::cin, line);
+            std::cout << "Saving ngrams to " << line << std::endl;
+            m.SaveNgramsToBinary(line);
+            std::cout << "Ngrams successfully saved to " << line << std::endl;
+            std::cout << "__END__" << std::endl
+                      << std::flush;
+        }
+        else if (line == "load")
+        {
+            std::getline(std::cin, line);
+            std::cout << "Loading ngrams from " << line << std::endl;
+            m.LoadNgramsFromBinary(line);
+            std::cout << "Ngrams successfully loaded from " << line << std::endl;
             std::cout << "__END__" << std::endl
                       << std::flush;
         }

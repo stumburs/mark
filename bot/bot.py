@@ -28,12 +28,12 @@ async def on_ready(ready_event: EventData):
 
     # Start up markov
     print("Setting up Markov")
-    print(backend_subprocess.load_source_text("alice.txt"))
-    print(backend_subprocess.build_ngrams())
+    print(await backend_subprocess.load_source_text_async("alice.txt"))
+    print(await backend_subprocess.build_ngrams_async())
 
 
 async def mark_command(cmd: ChatCommand):
-    await cmd.reply(backend_subprocess.generate_text())
+    await cmd.reply(await backend_subprocess.generate_text_async())
 
 
 async def run_bot():

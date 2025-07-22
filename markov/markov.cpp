@@ -177,6 +177,8 @@ int main()
             std::getline(std::cin, line);
             m.ReadSourceFromFile(line);
             std::cout << "Loaded " << line << std::endl;
+            std::cout << "__END__" << std::endl
+                      << std::flush;
         }
         else if (line == "build_ngrams")
         {
@@ -185,18 +187,24 @@ int main()
             {
                 m.BuildNgrams(Markov::SplitStrategy::SplitByWord);
                 std::cout << "Ngrams built" << std::endl;
+                std::cout << "__END__" << std::endl
+                          << std::flush;
             }
-            // else if (line == "SplitByCharacter")
-            // {
-            //     std::cout << "Specify amount of characters to split by" << std::endl;
-            //     std::getline(std::cin, line);
-            //     m.BuildNgrams(Markov::SplitStrategy::SplitByCharacter, std::stoll(line));
-            //     std::cout << "Ngrams built" << std::endl;
-            // }
-            // else
-            // {
-            //     std::cerr << "Invalid split strategy specified: " << line << std::endl;
-            // }
+            else
+            {
+                try
+                {
+                    size_t char_count = std::stoull(line);
+                    m.BuildNgrams(Markov::SplitStrategy::SplitByCharacter, char_count);
+                    std::cout << "Ngrams built" << std::endl;
+                    std::cout << "__END__" << std::endl
+                              << std::flush;
+                }
+                catch (const std::exception &e)
+                {
+                    std::cerr << "Invalid split strategy or count: " << line << std::endl;
+                }
+            }
         }
         else if (line == "generate")
         {

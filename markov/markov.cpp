@@ -34,6 +34,8 @@ public:
         std::ifstream input(source_path);
         if (!input.is_open())
         {
+            std::cout << "Could not open file: " << source_path << std::endl
+                      << std::flush;
             throw std::runtime_error("Could not open file: " + source_path);
         }
 
@@ -44,20 +46,23 @@ public:
 
     // Builds Ngrams from text currently held within 'source_text'
     // 'character_count' only matters when splitting by characters
-    void BuildNgrams(SplitStrategy split_strategy, int character_count = 1)
+    void BuildNgrams(SplitStrategy split_strategy, int character_count = 1, const std::string *optional_text = nullptr)
     {
+        const std::string &text_to_use = optional_text ? *optional_text : source_text;
+
         std::vector<std::string> words;
 
         switch (split_strategy)
         {
         case SplitStrategy::SplitByWord:
-            words = SplitKeepSpaces(source_text);
+            words = SplitKeepSpaces(text_to_use);
             break;
         case SplitStrategy::SplitByCharacter:
-            words = SplitByNCharacters(source_text, character_count);
+            words = SplitByNCharacters(text_to_use, character_count);
             break;
         default:
-            std::cerr << "Unknown split strategy to build Ngrams." << std::endl;
+            std::cout << "Unknown split strategy to build Ngrams." << std::endl
+                      << std::flush;
             break;
         }
 
@@ -73,6 +78,8 @@ public:
     {
         if (ngrams.empty())
         {
+            std::cout << "No ngrams available - call BuildNgrams first" << std::endl
+                      << std::flush;
             throw std::runtime_error("No ngrams available - call BuildNgrams first");
         }
 
@@ -149,6 +156,8 @@ private:
     {
         if (ngrams.empty())
         {
+            std::cout << "Ngrams is empty" << std::endl
+                      << std::flush;
             throw std::runtime_error("Ngrams is empty");
         }
 
@@ -167,7 +176,8 @@ int main()
     Markov m;
     std::string line;
 
-    std::cout << "Backend awaiting commands..." << std::endl;
+    std::cout << "Backend awaiting commands..." << std::endl
+              << std::flush;
 
     // I have no clue how to make this better.
     while (std::getline(std::cin, line))
@@ -176,17 +186,47 @@ int main()
         {
             std::getline(std::cin, line);
             m.ReadSourceFromFile(line);
-            std::cout << "Loaded " << line << std::endl;
+            std::cout << "Loaded " << line << std::endl
+                      << std::flush;
             std::cout << "__END__" << std::endl
                       << std::flush;
         }
         else if (line == "build_ngrams")
         {
-            std::getline(std::cin, line);
-            if (line == "word")
+            // Read strategy or character count line
+            if (!std::getline(std::cin, line))
             {
-                m.BuildNgrams(Markov::SplitStrategy::SplitByWord);
-                std::cout << "Ngrams built by word" << std::endl;
+                std::cout << "Expected strategy line but got EOF" << std::endl
+                          << std::flush;
+                break; // or handle error appropriately
+            }
+            std::string strategy_line = line;
+
+            // Read optional input text until __END__INPUT__
+            std::string input_buffer;
+            while (std::getline(std::cin, line))
+            {
+                if (line == "__END__INPUT__")
+                    break;
+                input_buffer += line + "\n";
+            }
+
+            input_buffer = "test";
+            bool has_input_text = !input_buffer.empty();
+
+            if (strategy_line == "word")
+            {
+                if (has_input_text)
+                {
+                    m.BuildNgrams(Markov::SplitStrategy::SplitByWord, 1, &input_buffer);
+                }
+                else
+                {
+                    m.BuildNgrams(Markov::SplitStrategy::SplitByWord);
+                }
+
+                std::cout << "Ngrams built by word" << (has_input_text ? " (from chat)" : "") << std::endl
+                          << std::flush;
                 std::cout << "__END__" << std::endl
                           << std::flush;
             }
@@ -194,23 +234,36 @@ int main()
             {
                 try
                 {
-                    size_t char_count = std::stoull(line);
-                    m.BuildNgrams(Markov::SplitStrategy::SplitByCharacter, char_count);
-                    std::cout << "Ngrams built by " << char_count << " characters" << std::endl;
+                    size_t char_count = std::stoull(strategy_line);
+
+                    if (has_input_text)
+                    {
+                        m.BuildNgrams(Markov::SplitStrategy::SplitByCharacter, char_count, &input_buffer);
+                    }
+                    else
+                    {
+                        m.BuildNgrams(Markov::SplitStrategy::SplitByCharacter, char_count);
+                    }
+
+                    std::cout << "Ngrams built by " << char_count << " characters" << (has_input_text ? " (from chat)" : "") << std::endl
+                              << std::flush;
                     std::cout << "__END__" << std::endl
                               << std::flush;
                 }
                 catch (const std::exception &e)
                 {
-                    std::cerr << "Invalid split strategy or count: " << line << std::endl;
+                    std::cout << "Invalid split strategy or count: " << strategy_line << std::endl
+                              << std::flush;
                 }
             }
         }
         else if (line == "generate")
         {
             std::getline(std::cin, line); // Ignored for now
-            std::cout << m.GenerateText(100) << std::endl;
-            std::cout << "__END__" << std::endl;
+            std::cout << m.GenerateText(100) << std::endl
+                      << std::flush;
+            std::cout << "__END__" << std::endl
+                      << std::flush;
         }
     }
 }

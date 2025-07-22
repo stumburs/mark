@@ -25,7 +25,18 @@ CHARACTER_COUNT = config.getint("MARKOV", "CharacterCount", fallback=4)
 
 
 async def on_message(msg: ChatMessage):
+    if msg.text.startswith("!"):
+        return
+
     print(f'{msg.user.display_name}: {msg.text}')
+
+    if TRAIN_ON_CHAT:
+        try:
+            await backend_subprocess.build_ngrams_async(
+                split_strategy=SPLIT_STRATEGY, character_count=CHARACTER_COUNT, new_text=msg.text)
+        except Exception as e:
+            print(f"Error in build_ngrams_async: {e}")
+            raise Exception(e)
 
 
 async def on_ready(ready_event: EventData):
@@ -35,8 +46,9 @@ async def on_ready(ready_event: EventData):
 
     # Start up markov
     print("Setting up Markov")
-    print(await backend_subprocess.load_source_text_async("alice.txt"))
-    print(await backend_subprocess.build_ngrams_async(split_strategy=SPLIT_STRATEGY, character_count=CHARACTER_COUNT))
+    print(backend_subprocess.proc.stdout.readline())
+    # print(await backend_subprocess.load_source_text_async("alice.txt"))
+    # print(await backend_subprocess.build_ngrams_async(split_strategy=SPLIT_STRATEGY, character_count=CHARACTER_COUNT))
 
 
 async def mark_command(cmd: ChatCommand):

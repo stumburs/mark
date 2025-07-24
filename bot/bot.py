@@ -129,8 +129,9 @@ async def save_command(cmd: ChatCommand):
 
 async def generation_toggle_command(cmd: ChatCommand):
     global GENERATION_ENABLED
-    GENERATION_ENABLED = not GENERATION_ENABLED
-    await cmd.reply(f"Generation has been {"ENABLED" if GENERATION_ENABLED else "DISABLED"}.")
+    if cmd.user.name == TARGET_CHANNEL.lower():
+        GENERATION_ENABLED = not GENERATION_ENABLED
+        await cmd.reply(f"Generation has been {"ENABLED" if GENERATION_ENABLED else "DISABLED"}.")
 
 
 async def run_bot():

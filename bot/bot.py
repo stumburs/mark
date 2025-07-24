@@ -28,6 +28,8 @@ GENERATE_COMMAND = config.get('MARKOV', 'GenerateCommand', fallback="mark")
 LENGTH_TO_GENERATE = config.getint('MARKOV', 'LengthToGenerate', fallback=100)
 IGNORE_STREAMELEMENTS = config.getboolean(
     'MARKOV', 'IgnoreStreamElements', fallback=True)
+MAX_RETRIES = config.getint("MARKOV", "MaxRetries", fallback=3)
+
 
 # Autosave counter
 message_counter = 0
@@ -41,24 +43,49 @@ URL_REGEX = re.compile(
 # Generation enable toggle
 GENERATION_ENABLED: bool = True
 
+# Bad words
+
+
+def load_txt(path: str) -> set[str]:
+    with open(path, "r", encoding="utf-8") as f:
+        return set(line.strip().lower() for line in f if line.strip())
+
+
+BAD_WORDS: set[str] = load_txt("bot/badwords.txt")
+
+
+def contains_badword(message: str, badwords: set[str]) -> bool:
+    words = message.lower().split()
+    return any(word in badwords for word in words)
+
+
+# Ignored users
+IGNORED_USERS: set[str] = load_txt("bot/ignoredusers.txt")
+
 
 async def on_message(msg: ChatMessage):
     global message_counter
 
+    # filter out commands
     if msg.text.startswith("!"):
         return
 
-    # hotfix to ignore bots
-    if msg.user.name.lower() == "streamelements" or msg.user.name.lower() == "creatisbot":
+    # ignore specific users
+    if msg.user.name.lower() in IGNORED_USERS:
+        print(f"Ignoring {msg.user.name}")
         return
 
     # filter out messages with links
     if URL_REGEX.search(msg.text):
-        print("URL FILTERED")
+        return
+
+    # filter out bad words
+    if contains_badword(msg.text, badwords=BAD_WORDS):
         return
 
     print(f'{msg.user.display_name}: {msg.text}')
 
+    # train bot
     if TRAIN_ON_CHAT:
         print(await backend_subprocess.build_ngrams_async(
             split_strategy=SPLIT_STRATEGY, character_count=CHARACTER_COUNT, new_text=msg.text))
@@ -79,17 +106,24 @@ async def on_ready(ready_event: EventData):
     print("Setting up Markov")
     print(backend_subprocess.proc.stdout.readline())
     print(await backend_subprocess.load_ngrams_async(path=NGRAM_PATH))
-    # print(await backend_subprocess.load_source_text_async("alice.txt"))
-    # print(await backend_subprocess.build_ngrams_async(split_strategy=SPLIT_STRATEGY, character_count=CHARACTER_COUNT))
 
 
 async def mark_command(cmd: ChatCommand):
-    if GENERATION_ENABLED:
-        await cmd.reply(await backend_subprocess.generate_text_async(LENGTH_TO_GENERATE))
+    if not GENERATION_ENABLED:
+        return
+
+    for _ in range(MAX_RETRIES):
+        generated_text = await backend_subprocess.generate_text_async(length_to_generate=LENGTH_TO_GENERATE)
+
+        if not contains_badword(message=generated_text, badwords=BAD_WORDS):
+            await cmd.reply(generated_text)
+            return
+
+    await cmd.reply(f"⚠️ Failed to generate clean content after {MAX_RETRIES} attempts.")
 
 
 async def save_command(cmd: ChatCommand):
-    if cmd.user.name == TARGET_CHANNEL:  # only the channel owner can run this command
+    if cmd.user.name == TARGET_CHANNEL.lower():  # only the channel owner can run this command
         print(await backend_subprocess.save_ngrams_async(path=NGRAM_PATH))
 
 

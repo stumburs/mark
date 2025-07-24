@@ -5,6 +5,7 @@ from twitchAPI.twitch import Twitch
 import configparser
 import asyncio
 import backend_subprocess
+import re
 
 config = configparser.ConfigParser()
 
@@ -30,6 +31,12 @@ IGNORE_STREAMELEMENTS = config.getboolean(
 
 message_counter = 0
 
+# URL Filter
+URL_REGEX = re.compile(
+    r"(https?://www\.)\S+",
+    re.IGNORECASE
+)
+
 
 async def on_message(msg: ChatMessage):
     global message_counter
@@ -37,7 +44,13 @@ async def on_message(msg: ChatMessage):
     if msg.text.startswith("!"):
         return
 
-    if IGNORE_STREAMELEMENTS and msg.user.name == "StreamElements":
+    # hotfix to ignore bots
+    if msg.user.name.lower() == "streamelements" or msg.user.name.lower() == "creatisbot":
+        return
+
+    # filter out messages with links
+    if URL_REGEX.search(msg.text):
+        print("URL FILTERED")
         return
 
     print(f'{msg.user.display_name}: {msg.text}')

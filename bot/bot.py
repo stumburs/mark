@@ -29,13 +29,17 @@ LENGTH_TO_GENERATE = config.getint('MARKOV', 'LengthToGenerate', fallback=100)
 IGNORE_STREAMELEMENTS = config.getboolean(
     'MARKOV', 'IgnoreStreamElements', fallback=True)
 
+# Autosave counter
 message_counter = 0
 
 # URL Filter
 URL_REGEX = re.compile(
-    r"(https?://www\.)\S+",
+    r"(https?:\/\/(?:www\.|(?!www))[a-zA-Z0-9][a-zA-Z0-9-]+[a-zA-Z0-9]\.[^\s]{2,}|www\.[a-zA-Z0-9][a-zA-Z0-9-]+[a-zA-Z0-9]\.[^\s]{2,}|https?:\/\/(?:www\.|(?!www))[a-zA-Z0-9]+\.[^\s]{2,}|www\.[a-zA-Z0-9]+\.[^\s]{2,})",
     re.IGNORECASE
 )
+
+# Generation enable toggle
+GENERATION_ENABLED: bool = True
 
 
 async def on_message(msg: ChatMessage):
@@ -80,12 +84,19 @@ async def on_ready(ready_event: EventData):
 
 
 async def mark_command(cmd: ChatCommand):
-    await cmd.reply(await backend_subprocess.generate_text_async(LENGTH_TO_GENERATE))
+    if GENERATION_ENABLED:
+        await cmd.reply(await backend_subprocess.generate_text_async(LENGTH_TO_GENERATE))
 
 
 async def save_command(cmd: ChatCommand):
     if cmd.user.name == TARGET_CHANNEL:  # only the channel owner can run this command
         print(await backend_subprocess.save_ngrams_async(path=NGRAM_PATH))
+
+
+async def generation_toggle_command(cmd: ChatCommand):
+    global GENERATION_ENABLED
+    GENERATION_ENABLED = not GENERATION_ENABLED
+    await cmd.reply(f"Generation has been {"ENABLED" if GENERATION_ENABLED else "DISABLED"}.")
 
 
 async def run_bot():
@@ -100,6 +111,7 @@ async def run_bot():
     chat.register_event(ChatEvent.MESSAGE, on_message)
     chat.register_command(GENERATE_COMMAND, mark_command)
     chat.register_command('save', save_command)  # Debug
+    chat.register_command('togglebot', generation_toggle_command)
 
     chat.start()
 

@@ -121,9 +121,7 @@ async def mark_command(cmd: ChatCommand):
 
     # global timeout
     now = time.time()
-    print(f"Now: {now}")
     if now - last_processed_time < MESSAGE_TIMEOUT:
-        print(now - last_processed_time)
         return
 
     last_processed_time = now

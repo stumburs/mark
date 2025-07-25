@@ -6,6 +6,7 @@ import configparser
 import asyncio
 import backend_subprocess
 import re
+import time
 
 config = configparser.ConfigParser()
 
@@ -29,6 +30,7 @@ LENGTH_TO_GENERATE = config.getint('MARKOV', 'LengthToGenerate', fallback=100)
 IGNORE_STREAMELEMENTS = config.getboolean(
     'MARKOV', 'IgnoreStreamElements', fallback=True)
 MAX_RETRIES = config.getint("MARKOV", "MaxRetries", fallback=3)
+MESSAGE_TIMEOUT = config.getint("MARKOV", "MessageTimeout", fallback=0)
 
 
 # Autosave counter
@@ -61,6 +63,9 @@ def contains_badword(message: str, badwords: set[str]) -> bool:
 
 # Ignored users
 IGNORED_USERS: set[str] = load_txt("bot/ignoredusers.txt")
+
+# Global Timeout
+last_processed_time = 0
 
 
 async def on_message(msg: ChatMessage):
@@ -109,8 +114,19 @@ async def on_ready(ready_event: EventData):
 
 
 async def mark_command(cmd: ChatCommand):
+    global last_processed_time
+
     if not GENERATION_ENABLED:
         return
+
+    # global timeout
+    now = time.time()
+    print(f"Now: {now}")
+    if now - last_processed_time < MESSAGE_TIMEOUT:
+        print(now - last_processed_time)
+        return
+
+    last_processed_time = now
 
     for _ in range(MAX_RETRIES):
         generated_text = await backend_subprocess.generate_text_async(length_to_generate=LENGTH_TO_GENERATE)

@@ -7,6 +7,7 @@ import asyncio
 import backend_subprocess
 import re
 import time
+import tts
 
 config = configparser.ConfigParser()
 
@@ -18,19 +19,45 @@ APP_ID = config.get('AUTH', 'ClientID')
 APP_SECRET = config.get('AUTH', 'ClientSecret')
 USER_SCOPE = [AuthScope.CHAT_READ, AuthScope.CHAT_EDIT]
 TARGET_CHANNEL = config.get('AUTH', 'TargetChannel')
+YOUR_NAME = config.get('AUTH', 'YourName', fallback=TARGET_CHANNEL)
 
 # Markov
-TRAIN_ON_CHAT = config.getboolean('MARKOV', 'TrainOnChat', fallback=True)
 NGRAM_PATH = config.get('MARKOV', 'NgramPath', fallback="data.bin")
-SPLIT_STRATEGY = config.get("MARKOV", "SplitStrategy", fallback="word").lower()
+SPLIT_STRATEGY = config.get(
+    "MARKOV", "SplitStrategy", fallback="word").lower()
 CHARACTER_COUNT = config.getint("MARKOV", "CharacterCount", fallback=4)
-AUTOSAVE_INTERVAL = config.getint("MARKOV", "AutosaveInterval", fallback=100)
 GENERATE_COMMAND = config.get('MARKOV', 'GenerateCommand', fallback="mark")
-LENGTH_TO_GENERATE = config.getint('MARKOV', 'LengthToGenerate', fallback=100)
-IGNORE_STREAMELEMENTS = config.getboolean(
-    'MARKOV', 'IgnoreStreamElements', fallback=True)
-MAX_RETRIES = config.getint("MARKOV", "MaxRetries", fallback=3)
-MESSAGE_TIMEOUT = config.getint("MARKOV", "MessageTimeout", fallback=0)
+
+
+async def load_config(cmd: ChatCommand):
+    global TRAIN_ON_CHAT
+    global AUTOSAVE_INTERVAL, LENGTH_TO_GENERATE
+    global MAX_RETRIES, MESSAGE_TIMEOUT, TTS_ENABLED, TTS_LANGUAGE, TTS_TLD
+
+    if cmd != None:
+        if cmd.user.name != YOUR_NAME.lower():  # only the bot owner can run this command
+            return
+
+        # Reload config file
+    config.read("bot/config.ini")
+
+    # Markov
+    TRAIN_ON_CHAT = config.getboolean('MARKOV', 'TrainOnChat', fallback=True)
+
+    AUTOSAVE_INTERVAL = config.getint(
+        "MARKOV", "AutosaveInterval", fallback=100)
+    LENGTH_TO_GENERATE = config.getint(
+        'MARKOV', 'LengthToGenerate', fallback=100)
+    MAX_RETRIES = config.getint("MARKOV", "MaxRetries", fallback=3)
+    MESSAGE_TIMEOUT = config.getint("MARKOV", "MessageTimeout", fallback=0)
+
+    # TTS
+    TTS_ENABLED = config.getboolean('TTS', 'TTS', fallback=False)
+    TTS_LANGUAGE = config.get('TTS', 'TTSLanguage', fallback="en")
+    TTS_TLD = config.get('TTS', 'TTSTLD', fallback="co.uk")
+
+    if cmd != None:
+        await cmd.reply("Settings updated from config!")
 
 
 # Autosave counter
@@ -63,6 +90,21 @@ def contains_badword(message: str, badwords: set[str]) -> bool:
 
 # Ignored users
 IGNORED_USERS: set[str] = load_txt("bot/ignoredusers.txt")
+
+# Naughty users
+NAUGHTY_USERS: set[str] = set()
+
+# Format output
+# If output is longer than a single word, remove the first word as it's likely garbage
+# Otherwise, keep the single word
+
+
+def format_output(text: str) -> str:
+    words = text.split()
+    if len(words) >= 2:
+        return ' '.join(words[1:]).strip()
+    return text.strip()
+
 
 # Global Timeout
 last_processed_time = 0
@@ -119,6 +161,10 @@ async def mark_command(cmd: ChatCommand):
     if not GENERATION_ENABLED:
         return
 
+    if cmd.user.name.lower() in NAUGHTY_USERS:
+        # didn't manage to find a proper solution so we just ignore them
+        return
+
     # global timeout
     now = time.time()
     if now - last_processed_time < MESSAGE_TIMEOUT:
@@ -127,28 +173,66 @@ async def mark_command(cmd: ChatCommand):
     last_processed_time = now
 
     for _ in range(MAX_RETRIES):
-        generated_text = await backend_subprocess.generate_text_async(length_to_generate=LENGTH_TO_GENERATE)
+        generated_text = format_output(await backend_subprocess.generate_text_async(length_to_generate=LENGTH_TO_GENERATE))
 
         if not contains_badword(message=generated_text, badwords=BAD_WORDS):
             await cmd.reply(generated_text)
+            # TTS
+            if TTS_ENABLED:
+                await tts.speak(generated_text, lang=TTS_LANGUAGE, tld=TTS_TLD)
             return
 
     await cmd.reply(f"⚠️ Failed to generate clean content after {MAX_RETRIES} attempts.")
 
 
 async def save_command(cmd: ChatCommand):
-    if cmd.user.name == TARGET_CHANNEL.lower():  # only the channel owner can run this command
+    if cmd.user.name == YOUR_NAME.lower():  # only the bot owner can run this command
         print(await backend_subprocess.save_ngrams_async(path=NGRAM_PATH))
 
 
 async def generation_toggle_command(cmd: ChatCommand):
     global GENERATION_ENABLED
-    if cmd.user.name == TARGET_CHANNEL.lower():
+    if cmd.user.name == YOUR_NAME.lower():  # only the bot owner can run this command
         GENERATION_ENABLED = not GENERATION_ENABLED
         await cmd.reply(f"Generation has been {"ENABLED" if GENERATION_ENABLED else "DISABLED"}.")
 
 
+async def toggle_naughty_user(cmd: ChatCommand):
+    global NAUGHTY_USERS
+
+    if cmd.user.name != YOUR_NAME.lower():  # only the bot owner can run this command
+        return
+
+    command_text = cmd.text.removeprefix("!naughty").strip()
+
+    if not command_text:
+        await cmd.reply("No user specified!")
+        return
+
+    naughty_user = command_text.split()[0].lower().removeprefix("@")
+
+    if naughty_user in NAUGHTY_USERS:
+        NAUGHTY_USERS.remove(naughty_user)
+        await cmd.reply(f"Removed {naughty_user} from naughty list.")
+    else:
+        NAUGHTY_USERS.add(naughty_user)
+        await cmd.reply(f"Added {naughty_user} to naughty list.")
+
+
+async def say_tts(cmd: ChatCommand):
+    if cmd.user.name == YOUR_NAME.lower():  # only the bot owner can run this command
+        command_text = cmd.parameter
+
+        if not command_text:
+            await cmd.reply("No text given!")
+            return
+
+        await tts.speak(command_text, lang=TTS_LANGUAGE, tld=TTS_TLD)
+
+
 async def run_bot():
+    global STREAMER_ID
+    await load_config(None)
     bot = await Twitch(app_id=APP_ID, app_secret=APP_SECRET)
     auth = UserAuthenticator(bot, USER_SCOPE)
     token, refresh_token = await auth.authenticate()
@@ -161,6 +245,9 @@ async def run_bot():
     chat.register_command(GENERATE_COMMAND, mark_command)
     chat.register_command('save', save_command)  # Debug
     chat.register_command('togglebot', generation_toggle_command)
+    chat.register_command('refreshconfig', load_config)
+    chat.register_command('naughty', toggle_naughty_user)
+    chat.register_command('tts', say_tts)
 
     chat.start()
 

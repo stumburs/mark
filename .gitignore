@@ -4,3 +4,4 @@ __pycache__/
 .vscode/
 alice.txt
 data.bin
+markov/markov.exe

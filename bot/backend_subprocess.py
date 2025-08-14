@@ -13,7 +13,8 @@ proc = subprocess.Popen(
     stdout=subprocess.PIPE,
     text=True,
     bufsize=1,
-    encoding='utf-8'
+    encoding='utf-8',
+    errors='ignore'
 )
 
 
@@ -30,6 +31,7 @@ def load_source_text(path: str) -> str:
             line = proc.stdout.readline()
             if not line:
                 break
+
             line = line.strip()
             if line == "__END__":
                 break

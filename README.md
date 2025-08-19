@@ -10,9 +10,7 @@ It can be trained from chat messages in real time, generate random sentences, an
 ### 1. Requirements
 
 - **Python 3.13+** (3.12 may work but is untested)
-- **C++20 compiler** (C++17 may work but is untested)
-- **Make** (optional, for building the C++ backend)
-- A Twitch Application
+- [A Twitch Application](https://dev.twitch.tv/console/apps)
 
 ---
 
@@ -24,27 +22,7 @@ It can be trained from chat messages in real time, generate random sentences, an
     git clone https://github.com/stumburs/mark.git
     ```
 
-2.  Navigate to the backend directory:
-
-    ```bash
-    cd mark/markov
-    ```
-
-3.  Build the C++ backend:
-
-    If you have `make` installed, run:
-
-    ```bash
-    make
-    ```
-
-    If you don't have `make`, you can compile manually with:
-
-    ```bash
-    g++ markov.cpp -o markov -Wall -Wextra -O3 -std=c++20
-    ```
-
-4.  Configure the Twitch Application:
+2.  Configure the Twitch Application:
 
     - Go to the [Twitch Developer Console](https://dev.twitch.tv/console/apps).
     - Create a new application.
@@ -52,10 +30,25 @@ It can be trained from chat messages in real time, generate random sentences, an
     - Set the application category to "Chat Bot".
     - Note the **Client ID** and generate a **Client Secret**.
 
-5.  Navigate to the `config.ini` file within the `bot` folder.
+3.  Navigate to the `config.ini` file within the `bot` folder.
+
     - Fill in the `ClientID` and `ClientSecret` with the values from your Twitch application.
     - Set the `TargetChannel` to the Twitch channel you want the bot to join (e.g., `yourchannelname`).
     - Set the `YourName` to your Twitch username. This user will have exclusive permissions to run certain commands.
+
+4.  Run the bot using the following command:
+
+    On Windows:
+
+    ```bash
+    ./run.bat
+    ```
+
+    On Linux:
+
+    ```bash
+    ./run.sh
+    ```
 
 ---
 
@@ -76,7 +69,7 @@ Exclusive commands can only be run by the user specified in `YourName` in `confi
 
 ### Knowledge
 
-The bot uses a Markov chain model stored in `data.bin` (by default). This is loaded (or created if doesn't exist) at startup and updated periodically. By deleting `data.bin`, you can reset the model.
+The bot uses a Markov chain model stored in `data.pkl` (by default). This is loaded (or created if doesn't exist) at startup and updated periodically. By deleting `data.pkl`, you can reset the model.
 
 ### Bad Words
 
@@ -89,3 +82,7 @@ You can add users to `ignore.txt`. Messages from these users will not be used fo
 ### URL Filtering
 
 To prevent link spam, (most) messages containing URLs are filtered from training.
+
+### C++ Backend
+
+The bot has an optional C++ backend for (potentially) more efficient text generation. To use it, you need to compile the C++ code in the `cpp_markov` folder. So far it's not very well supported, so you may need to modify the Python code to use it. The C++ backend is also being deprecated in favor of a new Python backend that is simpler to use.

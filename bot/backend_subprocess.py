@@ -2,171 +2,193 @@ import subprocess
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 import threading
+import markov
 
 executor = ThreadPoolExecutor()
-proc_lock = threading.Lock()
-
-# TODO: Change path
-proc = subprocess.Popen(
-    ['markov/markov'],
-    stdin=subprocess.PIPE,
-    stdout=subprocess.PIPE,
-    text=True,
-    bufsize=1,
-    encoding='utf-8',
-    errors='ignore'
-)
 
 
-def load_source_text(path: str) -> str:
-    with proc_lock:
-        proc.stdin.write("load_source\n")
-        proc.stdin.flush()
+class BackendBase:
+    async def load_source_text(self, path: str) -> str:
+        raise NotImplementedError
 
-        proc.stdin.write(path + '\n')
-        proc.stdin.flush()
+    async def build_ngrams(self, split_strategy: str, character_count: int, new_text: str | None = None) -> str:
+        raise NotImplementedError
 
-        lines = []
-        while True:
-            line = proc.stdout.readline()
-            if not line:
-                break
+    async def generate_text(self, length_to_generate: int) -> str:
+        raise NotImplementedError
 
-            line = line.strip()
-            if line == "__END__":
-                break
-            lines.append(line)
+    async def save_ngrams(self, path: str) -> str:
+        raise NotImplementedError
 
-        return "\n".join(lines)
+    async def load_ngrams(self, path: str) -> str:
+        raise NotImplementedError
 
 
-async def load_source_text_async(file_path: str) -> str:
-    loop = asyncio.get_running_loop()
-    return await loop.run_in_executor(executor, load_source_text, file_path)
+class PyBackend(BackendBase):
+    async def load_ngrams(self, path: str) -> str:
+        return await markov.load_ngrams_from_binary(path=path)
+
+    async def save_ngrams(self, path: str) -> str:
+        return await markov.save_ngrams_to_binary(path=path)
+
+    async def generate_text(self, length_to_generate: int) -> str:
+        return await markov.generate_text(length=length_to_generate)
+
+    async def build_ngrams(self, split_strategy: str, character_count: int, new_text: str | None) -> str:
+        return await markov.build_ngrams(split_strategy=split_strategy, character_count=character_count, optional_text=new_text)
 
 
-def build_ngrams(split_strategy: str, character_count: int, new_text: str | None = None) -> str:
-    with proc_lock:
-        proc.stdin.write("build_ngrams\n")
-        proc.stdin.flush()
+# NOTE:
+# CPP backend is deprecated
+class CppBackend(BackendBase):
+    def __init__(self, path: str = "markov/markov"):
+        self.proc = subprocess.Popen(
+            [path],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            text=True,
+            bufsize=1,
+            encoding='utf-8',
+            errors='ignore'
+        )
+        self.proc_lock = threading.Lock()
 
-        if split_strategy == "word":
-            proc.stdin.write("word\n")
-        elif split_strategy == "character":
-            proc.stdin.write(f"{character_count}\n")
-        else:
-            raise ValueError(f"Invalid split strategy: {split_strategy}")
-        proc.stdin.flush()
+    async def load_source_text(self, path: str) -> str:
+        def _load():
+            with self.proc_lock:
+                self.proc.stdin.write("load_source\n")
+                self.proc.stdin.flush()
 
-        # If updating ngrams
-        if new_text:
-            proc.stdin.write(new_text.strip() + "\n")
-        proc.stdin.write("__END__INPUT__\n")
-        proc.stdin.flush()
+                self.proc.stdin.write(path + '\n')
+                self.proc.stdin.flush()
 
-        # Collect output
-        lines = []
-        while True:
-            line = proc.stdout.readline()
-            if not line:
-                break
-            line = line.strip()
-            if line == "__END__":
-                break
-            lines.append(line)
+                lines = []
+                while True:
+                    line = self.proc.stdout.readline()
+                    if not line:
+                        break
 
-        return "\n".join(lines)
+                    line = line.strip()
+                    if line == "__END__":
+                        break
+                    lines.append(line)
 
+                return "\n".join(lines)
 
-async def build_ngrams_async(split_strategy: str, character_count: int, new_text: str | None = None) -> str:
-    loop = asyncio.get_running_loop()
-    try:
-        return await loop.run_in_executor(executor, build_ngrams, split_strategy, character_count, new_text)
-    except Exception as e:
-        stderr = proc.stdout.read()
-        print(f"[Subprocess Error] {e}\nStderr:\n{stderr}")
-        raise
+        return await asyncio.get_event_loop().run_in_executor(executor=executor, func=_load)
 
+    async def build_ngrams(self, split_strategy: str, character_count: int, new_text: str | None) -> str:
+        def _build_ngrams():
+            with self.proc_lock:
+                self.proc.stdin.write("build_ngrams\n")
+                self.proc.stdin.flush()
 
-def generate_text(length_to_generate: int) -> str:
-    with proc_lock:
-        if proc.poll() is not None:
-            raise RuntimeError("Backend process is not running.")
+                if split_strategy == "word":
+                    self.proc.stdin.write("word\n")
+                elif split_strategy == "character":
+                    self.proc.stdin.write(f"{character_count}\n")
+                else:
+                    raise ValueError(
+                        f"Invalid split strategy: {split_strategy}")
+                self.proc.stdin.flush()
+
+                # If updating ngrams
+                if new_text:
+                    self.proc.stdin.write(new_text.strip() + "\n")
+                self.proc.stdin.write("__END__INPUT__\n")
+                self.proc.stdin.flush()
+
+                # Collect output
+                lines = []
+                while True:
+                    line = self.proc.stdout.readline()
+                    if not line:
+                        break
+                    line = line.strip()
+                    if line == "__END__":
+                        break
+                    lines.append(line)
+
+                return "\n".join(lines)
 
         try:
-            proc.stdin.write("generate\n")
-            proc.stdin.flush()
-            proc.stdin.write(f"{length_to_generate}\n")
-            proc.stdin.flush()
-        except BrokenPipeError:
-            print("BrokenPipeError: Subprocess pipe is closed.")
-            stderr = proc.stdout.read()
-            print("Subprocess stderr output:\n", stderr)
+            return await asyncio.get_event_loop().run_in_executor(executor, _build_ngrams)
+        except Exception as e:
+            stderr = self.proc.stdout.read()
+            print(f"[Subprocess Error] {e}\nStderr:\n{stderr}")
             raise
 
-        lines = []
-        while True:
-            line = proc.stdout.readline()
-            if not line:
-                break
-            line = line.strip()
-            if line == "__END__":
-                break
-            lines.append(line)
+    async def generate_text(self, length_to_generate: int) -> str:
+        def _generate_text():
+            with self.proc_lock:
+                if self.proc.poll() is not None:
+                    raise RuntimeError("Backend process is not running.")
 
-        return "\n".join(lines)
+                try:
+                    self.proc.stdin.write("generate\n")
+                    self.proc.stdin.flush()
+                    self.proc.stdin.write(f"{length_to_generate}\n")
+                    self.proc.stdin.flush()
+                except BrokenPipeError:
+                    print("BrokenPipeError: Subprocess pipe is closed.")
+                    stderr = self.proc.stdout.read()
+                    print("Subprocess stderr output:\n", stderr)
+                    raise
 
+                lines = []
+                while True:
+                    line = self.proc.stdout.readline()
+                    if not line:
+                        break
+                    line = line.strip()
+                    if line == "__END__":
+                        break
+                    lines.append(line)
 
-async def generate_text_async(length_to_generate: int) -> str:
-    loop = asyncio.get_running_loop()
-    return await loop.run_in_executor(executor, generate_text, length_to_generate)
+                return "\n".join(lines)
 
+        return await asyncio.get_running_loop().run_in_executor(executor, _generate_text)
 
-def save_ngrams(path: str) -> str:
-    with proc_lock:
-        proc.stdin.write("save\n")
-        proc.stdin.flush()
-        proc.stdin.write(f"{path}\n")
-        proc.stdin.flush()
+    async def save_ngrams(self, path: str) -> str:
+        def _save_ngrams():
+            with self.proc_lock:
+                self.proc.stdin.write("save\n")
+                self.proc.stdin.flush()
+                self.proc.stdin.write(f"{path}\n")
+                self.proc.stdin.flush()
 
-        lines = []
-        while True:
-            line = proc.stdout.readline()
-            if not line:
-                break
-            line = line.strip()
-            if line == "__END__":
-                break
-            lines.append(line)
+                lines = []
+                while True:
+                    line = self.proc.stdout.readline()
+                    if not line:
+                        break
+                    line = line.strip()
+                    if line == "__END__":
+                        break
+                    lines.append(line)
 
-        return "\n".join(lines)
+                return "\n".join(lines)
 
+        return await asyncio.get_running_loop().run_in_executor(executor, _save_ngrams)
 
-async def save_ngrams_async(path: str) -> str:
-    loop = asyncio.get_running_loop()
-    return await loop.run_in_executor(executor, save_ngrams, path)
+    async def load_ngrams(self, path: str) -> str:
+        def _load_ngrams():
+            with self.proc_lock:
+                self.proc.stdin.write("load\n")
+                self.proc.stdin.flush()
+                self.proc.stdin.write(f"{path}\n")
+                self.proc.stdin.flush()
 
+                lines = []
+                while True:
+                    line = self.proc.stdout.readline()
+                    if not line:
+                        break
+                    line = line.strip()
+                    if line == "__END__":
+                        break
+                    lines.append(line)
 
-def load_ngrams(path: str) -> str:
-    with proc_lock:
-        proc.stdin.write("load\n")
-        proc.stdin.flush()
-        proc.stdin.write(f"{path}\n")
-        proc.stdin.flush()
+                return "\n".join(lines)
 
-        lines = []
-        while True:
-            line = proc.stdout.readline()
-            if not line:
-                break
-            line = line.strip()
-            if line == "__END__":
-                break
-            lines.append(line)
-
-        return "\n".join(lines)
-
-
-async def load_ngrams_async(path: str) -> str:
-    loop = asyncio.get_running_loop()
-    return await loop.run_in_executor(executor, load_ngrams, path)
+        return await asyncio.get_running_loop().run_in_executor(executor, _load_ngrams)

@@ -241,9 +241,6 @@ int main()
     Markov m;
     std::string line;
 
-    std::cout << "Backend awaiting commands..." << std::endl
-              << std::flush;
-
     // I have no clue how to make this better.
     while (std::getline(std::cin, line))
     {

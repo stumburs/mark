@@ -1,8 +1,9 @@
 venv/
-markov/markov
+cpp_markov/markov
 __pycache__/
 .vscode/
 alice.txt
 data.bin
-markov/markov.exe
+cpp_markov/markov.exe
 bot_tokens.json
+*.pkl

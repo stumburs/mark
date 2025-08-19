@@ -13,6 +13,8 @@ import json
 
 CONFIG = config.read_config()
 
+markov = backend_subprocess.PyBackend()
+
 
 async def load_config(cmd: ChatCommand | None):
     global CONFIG
@@ -72,14 +74,14 @@ async def on_message(msg: ChatMessage):
 
     # train bot
     if CONFIG.train_on_chat:
-        print(await backend_subprocess.build_ngrams_async(
+        print(await markov.build_ngrams(
             split_strategy=CONFIG.split_strategy, character_count=CONFIG.character_count, new_text=msg.text))
 
         message_counter += 1
 
         if message_counter >= CONFIG.autosave_interval:
             message_counter = 0
-            await backend_subprocess.save_ngrams_async(path=CONFIG.ngram_path)
+            await markov.save_ngrams(path=CONFIG.ngram_path)
 
 
 async def on_ready(ready_event: EventData):
@@ -89,8 +91,8 @@ async def on_ready(ready_event: EventData):
 
     # Start up markov
     print("Setting up Markov")
-    print(backend_subprocess.proc.stdout.readline())
-    print(await backend_subprocess.load_ngrams_async(path=CONFIG.ngram_path))
+    # print(markov.proc.stdout.readline())
+    print(await markov.load_ngrams(path=CONFIG.ngram_path))
 
 
 async def mark_command(cmd: ChatCommand):
@@ -111,7 +113,7 @@ async def mark_command(cmd: ChatCommand):
     last_processed_time = now
 
     for _ in range(CONFIG.max_retries):
-        generated_text = format_output(await backend_subprocess.generate_text_async(length_to_generate=CONFIG.length_to_generate))
+        generated_text = format_output(await markov.generate_text(length_to_generate=CONFIG.length_to_generate))
 
         if not filter.contains_badword(message=generated_text, badwords=filter.BAD_WORDS):
             await cmd.reply(generated_text)
@@ -125,7 +127,7 @@ async def mark_command(cmd: ChatCommand):
 
 async def save_command(cmd: ChatCommand):
     if cmd.user.name == CONFIG.your_name.lower():  # only the bot owner can run this command
-        print(await backend_subprocess.save_ngrams_async(path=CONFIG.ngram_path))
+        print(await markov.save_ngrams(path=CONFIG.ngram_path))
 
 
 async def generation_toggle_command(cmd: ChatCommand):
@@ -201,9 +203,9 @@ async def run_bot():
 
     try:
         input('Press ENTER to stop\n')
-        await backend_subprocess.save_ngrams_async(path=CONFIG.ngram_path)
     finally:
         chat.stop()
         await bot.close()
+        print(await markov.save_ngrams(path=CONFIG.ngram_path))
 
 asyncio.run(run_bot())

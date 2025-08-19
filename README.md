@@ -77,7 +77,7 @@ You can add bad words to `badwords.txt`. This serves two purposes. If the bot re
 
 ### Ignored Users
 
-You can add users to `ignore.txt`. Messages from these users will not be used for training, and the bot will not respond to them.
+You can add users to `ignoredusers.txt`. Messages from these users will not be used for training, and the bot will not respond to them.
 
 ### URL Filtering
 

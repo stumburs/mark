@@ -11,7 +11,6 @@ It can be trained from chat messages in real time, generate random sentences, an
 
 - **Python 3.13+** (3.12 may work but is untested)
 - 2FA Verified Twitch Account
-- [A Twitch Application](https://dev.twitch.tv/console/apps)
 
 ---
 
